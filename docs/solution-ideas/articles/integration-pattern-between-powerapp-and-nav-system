@@ -1,0 +1,103 @@
+Integration solution between Power Apps and Nav on premises system
+
+Applies to: Dynamics 365 Customer Engagement, Dynamics 365 Sales, On-Premises Nav system, Power Automate, Power Apps, Dataverse, Azure Logic Apps, Azure Functions, Azure Key Vault, Azure Active Directory, Azure Application Insights, Custom Connectors, On-Premises Data Gateway to establish a real-time processing of messages/data from/to the device.
+This solution integrates Canvas App, Dataverse, Power Automate, Azure Service Bus, Azure Key Vault, Azure Logic App and Application Insights to establish a robust mechanism for transmitting messages/data from Canvas App to on-premises Nav system or vice versa.
+This pattern can be scaled up to increase the number of devices for real-time processing. The pattern ensures that the solution is resilient, robust, secured, performant, scalable, consistent and monitoring, error management, retries are built in.
+Introduction
+Dynamics often requires connecting to on-premises Nav system. The purpose of this solution is to bring efficiency in processing data and information across the various operational departments within the organisation and to replace many of the disparate software solutions.
+This Integration solution helps with seamless processing between Canvas App and on-premises Nav system.  Maintains data consistency between Dataverse and on premises Nav system by coordinating transactions across multiple services. This approach provides a centralized system for unique customer experience. 
+Architecture 
+
+ 
+
+
+ 
+
+The above diagrams illustrate the architecture for the solution. The first one is a high-level pattern, which illustrates how this pattern can be used in both directions. The second is more comprehensive architecture which is showing from Canvas App to Nav system, integrating with multiple components and platforms for the solution. This solution allows processing of data from canvas app, for example order processing, synchronizing data from Nav system into Dataverse to make it available in the device for example buying products. 
+Dataflow 
+
+1.	Device user will need to be authenticated by Active Directory before using the solution. Users will be AD users and under AD security groups.
+2.	Event is triggered by the Canvas App sitting on the Device 
+•	Event is triggered when the end user from Canvas App creates/updates a record, which creates record in Dataverse and starts the integration. Example scenario is when the user/customer adds products to buy, on to the basket and when the sales order gets created.
+3.	Power Automate stores message in Azure Service Bus Queue. 
+•	In case of any validation failures, missing data or transient errors Power Automate will send message to Error Handler. 
+•	Error Handler will handle the error by logging them to App Insight and/or Model driven Admin App for further analysis. It will also send email notification to specific group. 
+•	In the case of any requirement to connect to external third-party APIs Power Automate does that in the step 6 in the Architecture diagram
+•	Power Automate retrieves credentials from Key Vault to connect to Service Bus Queue (step 5 in the Architecture diagram) or any further details requited from Dataverse (step 2 in the Architecture diagram)
+4.	Logic App gets triggered when the message arrives to the service bus queue 
+•	Logic App parses the message, does the data mapping to match the staging database.
+•	Calls the Logic App Custom Connector action to post the message 
+•	All the keys, connection details, credentials are stored in KeyVault, Logic App retrieves keys and credentials
+•	Any errors will be sent to Error Handler and Error Handler will log them in App Insights and Admin App to do further analysis.
+5.	On-Premises Data Gateway is used to connect to on-premises web services which writes to on-premises SQL Staging database and Nav systems 
+6.	Web Services create records in Business Central and SQL Staging database 
+7.	Step 18 in the detailed architecture diagram represents synching the data between the Staging Database and Nav database – this is done by SQL stored procedures.
+8.	Webservice also sends order data to printer to give it to customers. – this is step 19.
+At each stage, each component stores log information in Application Insights and error handler.
+Note: 
+•	Custom Connector holds all the different custom actions required to connect to web services via on-premises data gateway.
+•	Logic App contains different workflows which calls the required custom action based the service bus queue message triggers.
+•	Service Bus holds different queues to handle different types of messages
+
+Components
+
+The following components are used in reference architecture.
+•	Dataverse: This is connected to power apps, stores data in tables.
+•	Power Automate: Power Automate, and child power automates are used for various integrations. These are triggered from power app or from Dataverse. For each integration separate service principal user and connections to avoid throttling and API limits.
+•	Azure Service Bus: This service hosts all queues. There's one dedicated queue for each integration, ensuring that messages directed toward a specific logic app. This design is integral for preventing message loss and to handle retry for the failed messages
+•	Azure Functions: Function App is essential here, for the efficiency for example product search functionality and lead time calculations.
+•	Application Insights: Integrated to provide comprehensive monitoring and insights into the system.
+•	Azure Key Vault: To hold all the credentials, keys and connection details.
+•	Custom Connector: This is used to connect securely to on-premises data gateway and hold all the API calls required for the integrations as actions. Power Automates and Logic App workflows will call these actions rather than directly calling the APIs. Benefits: secured, reliable, scalable and reusable.
+•	Logic Apps: Logic App contains workflows for various integrations. For each integration separate workflow, application user and connections to avoid throttling and API limits.
+Scenario details
+
+The proposed architecture is designed to address the following scenarios:
+•	Integrating Canvas App with on-premises Nav system to provide seamless operations and centralized unique customer experience.
+•	Robust, reliable, scalable, secured system to transmit messages/data from Canvas App to on-premises Nav system
+•	Retrieving data from Nav system to display on the Canvas App in real time.
+•	Bring efficiency in processing data and information across the various operational departments within the organisation and to replace many of the disparate software solutions.
+•	Maintaining data consistency between Dataverse and on premises Nav system by coordinating transactions across multiple services
+This architecture aims to provide a well architected, reliable, scalable framework for integrating Canvas App and Dataverse with on-premises Nav System using Power Automate and Azure Services along with error handling and retry mechanism.
+Potential use cases
+
+The proposed solution isn't industry-specific, it is scalable and extends to situations requiring integration across on-premises systems. In instances where real-time processing is imperative between a Dynamics 365 application and on-premises system, particularly in scenarios involving robust, scalable solution.
+Potential use cases to include processing orders from devices, in the store of a retail organization. It can be extended to include financial application process, buying products, and allocating delivery slots.
+•	Integrate Canvas App/Dataverse with on-premises Nav System using Azure services and Power Automate.
+•	Integrate with Finance Houses or any external third-party API’s
+•	Order processing
+•	Buying products using Canvas app on the device
+
+
+Considerations
+
+These considerations help implement a solution that includes Power Platform and Dynamics 365. Learn more at Dynamics 365 guidance documentation and Power Platform Well-Architected - Power Platform | Microsoft Learn
+Consider the following points when implementing this Integration:
+•	It's adapted for complex robust integrations and based on  Power Platform Well-Architected - Power Platform | Microsoft Learn.
+•	For each component, you must think about the error handling and retry strategy (how many times do we retry, time between each retry) and about the compensation transaction (what do we do if the transaction with other systems fails).
+•	This requires pro-development skills.
+•	Use application users/service principal users rather than licensed users for integration.
+•	Use separate application users/service principal users for each integration.
+Cost optimization
+
+•	Cost optimization is about looking at ways to reduce unnecessary expenses and improve operational efficiencies. For more information, see Overview of the cost optimization pillar.
+•	Consider cost optimization throughout the life cycle 
+o	Review the Azure infrastructure and the Azure service plans on different resource groups and switch them on and off when and where required.  Prioritize preproduction, production, operations, and disaster recovery environments. For each environment, consider the required availability, licensing, operating hours and conditions, and security.
+o	Reduce re-work or issues by doing the reviews throughout the project
+o	Monitor the performance throughout and benchmark, so that it’s addressed at the early stage itself.
+o	Claim check – separate messages from data on integrations
+o	Common resource consolidation – paying per service plan for azure services and utilizing the same plan and common resources.
+o	Data costs – synchronizing only modified data rather than all data
+o	Code costs – use GitHub Copilots to code to start with, Json data mappings, function app coding, unit tests and code reviews to reduce costs and increase efficiency.
+
+
+
+Related patterns:
+•	Azure integration, learn more about the integration of Dynamics 365 with Azure:
+ Azure integration
+•	The Retry pattern lets an application handle transient failures when it tries to connect to a service or network resource by transparently retrying the failed operation. This pattern can improve the stability of the application.
+•	The Circuit Breaker pattern handles faults that take a variable amount of time to recover from, when you connect to a remote service or resource. This pattern can improve the stability and resiliency of an application.
+Contributors
+
+Principal author:
+Suneetha Akula Head of Development and Principal Solutions Architect at Xpedition
